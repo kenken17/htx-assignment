@@ -17,3 +17,4 @@ env/
 *.log
 *.data
 *.sqlite
+media.db

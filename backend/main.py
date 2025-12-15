@@ -1,5 +1,8 @@
 from api import audio, health, search, video
+from db.database import Base, engine
 from fastapi import FastAPI
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Multimedia Processing Backend")
 
