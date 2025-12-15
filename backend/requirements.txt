@@ -4,6 +4,7 @@ numpy
 openai-whisper
 pydub
 python-multipart
+sentence_transformers
 sqlalchemy
 torch
 torchaudio 

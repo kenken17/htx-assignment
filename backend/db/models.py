@@ -21,4 +21,5 @@ class Transcription(Base):
     filename = Column(String, index=True)
     text = Column(Text)
     timestamps = Column(JSON)
+    embedding = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

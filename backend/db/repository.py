@@ -16,9 +16,11 @@ def save_video(
     return video
 
 
-def save_transcription(db: Session, filename: str, text: str, timestamps: list):
+def save_transcription(
+    db: Session, filename: str, text: str, timestamps: list, embedding=None
+):
     transcription = models.Transcription(
-        filename=filename, text=text, timestamps=timestamps
+        filename=filename, text=text, timestamps=timestamps, embedding=embedding
     )
     db.add(transcription)
     db.commit()

@@ -1,17 +1,20 @@
 import io
 
-import numpy as np
 import whisper
 from db import repository
 from db.deps import get_db
 from fastapi import APIRouter, Depends, File, UploadFile
 from pydub import AudioSegment
+from sentence_transformers import SentenceTransformer
 from sqlalchemy.orm import Session
 
 router = APIRouter()
 
 # Load Whisper tiny once
 model = whisper.load_model("tiny")
+
+# Load embedding model once
+embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
 
 @router.post("/process/audio")
@@ -22,7 +25,7 @@ async def process_audio(file: UploadFile = File(...), db: Session = Depends(get_
     # Convert any audio format to WAV 16kHz mono using Pydub
     audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
     audio = audio.set_channels(1).set_frame_rate(16000)
-    samples = np.array(audio.get_array_of_samples()).astype(np.float32) / 32768.0
+    samples = audio.get_array_of_samples()
 
     # Save temporary WAV for whisper
     tmp_path = f"/tmp/{file.filename}"
@@ -58,9 +61,14 @@ async def process_audio(file: UploadFile = File(...), db: Session = Depends(get_
             }
         ]
 
+    # Generate embedding for full transcription
+    embedding_vector = embedding_model.encode(
+        transcription_text
+    ).tolist()  # list for JSON/DB
+
     # Save to DB
     record = repository.save_transcription(
-        db, file.filename, transcription_text, segments
+        db, file.filename, transcription_text, segments, embedding=embedding_vector
     )
 
     return {
@@ -69,6 +77,7 @@ async def process_audio(file: UploadFile = File(...), db: Session = Depends(get_
         "text": transcription_text,
         "segments": segments,
         "message": "Audio processed successfully",
+        "embedding_length": len(embedding_vector),
     }
 
 
