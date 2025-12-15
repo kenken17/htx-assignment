@@ -1,4 +1,11 @@
 fastapi
-uvicorn
+librosa 
+numpy
+openai-whisper
+pydub
 python-multipart
 sqlalchemy
+torch
+torchaudio 
+transformers
+uvicorn
