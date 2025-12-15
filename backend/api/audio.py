@@ -1,5 +1,6 @@
 import io
 
+import numpy as np
 import whisper
 from db import repository
 from db.deps import get_db
@@ -62,13 +63,14 @@ async def process_audio(file: UploadFile = File(...), db: Session = Depends(get_
         ]
 
     # Generate embedding for full transcription
-    embedding_vector = embedding_model.encode(
-        transcription_text
-    ).tolist()  # list for JSON/DB
+    embedding_vector = embedding_model.encode(transcription_text)
+
+    # Convert to float32 bytes for SQLite BLOB
+    embedding_bytes = embedding_vector.astype(np.float32).tobytes()
 
     # Save to DB
     record = repository.save_transcription(
-        db, file.filename, transcription_text, segments, embedding=embedding_vector
+        db, file.filename, transcription_text, segments, embedding=embedding_bytes
     )
 
     return {

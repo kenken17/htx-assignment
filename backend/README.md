@@ -26,6 +26,44 @@ endpoints, including file upload endpoints.
 
 ## Design Notes
 
+Audio and video pipelines follow the same conceptual structure (media ingestion → content extraction → summarization → embedding → search).
+
+Due to differences in processing complexity, video logic is modularized further, while audio processing is kept within the API layer for simplicity.
+
+### Key Frame Extraction (Video Processing)
+
+Key frames are extracted using scene change detection based on grayscale histogram
+differences between sampled frames. Frames with histogram differences exceeding a
+threshold are considered scene changes and selected as key frames.
+
+### Object Detection (Video Processing)
+
+Object detection is performed using a pretrained `MobileNet-SSD` model via
+OpenCV's DNN module. Detection is run only on extracted key frames to keep
+processing lightweight and CPU-friendly.
+
+Key frame extraction and object detection are implemented as independent components and composed via a lightweight pipeline module. This allows individual stages to be tested and tuned independently while keeping the API layer thin.
+
+#### Object Detection Model (MobileNet-SSD)
+
+For CPU-friendly video object detection, this project uses a pretrained `MobileNet-SSD` model via OpenCV’s DNN module.
+
+**Model Files**
+
+The pipeline requires two files:
+
+- `MobileNetSSD_deploy.prototxt`
+  Defines the network architecture (layers, filters, strides, etc.)
+
+- `MobileNetSSD_deploy.caffemodel`
+  Contains the learned weights of the network
+  Provides knowledge for object detection (person, car, dog, etc.)
+  Both files must be present in backend/video/models/ for detection to work.
+
+**Download Links**
+
+A mirror with the specific files are available in the [PINTO0309/MobileNet-SSD-RealSense](https://github.com/PINTO0309/MobileNet-SSD-RealSense/tree/master/caffemodel/MobileNetSSD) archived repository
+
 ### Vector Search Implementation
 
 This project implements vector similarity search using **Option 3** from the assignment specification.

@@ -18,3 +18,10 @@ env/
 *.data
 *.sqlite
 media.db
+
+# Models
+MobileNetSSD_deploy.caffemodel
+MobileNetSSD_deploy.prototxt
+
+# uploads
+uploads/

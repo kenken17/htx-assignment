@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from db.database import Base
-from sqlalchemy import JSON, Column, DateTime, Integer, String, Text
+from sqlalchemy import JSON, Column, DateTime, Integer, LargeBinary, String, Text
 
 
 class Video(Base):
@@ -9,8 +9,10 @@ class Video(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String, index=True)
+    keyframes = Column(JSON)
     detected_objects = Column(JSON)
-    frame_timestamps = Column(JSON)
+    summary = Column(String)
+    embedding = Column(LargeBinary, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -21,5 +23,5 @@ class Transcription(Base):
     filename = Column(String, index=True)
     text = Column(Text)
     timestamps = Column(JSON)
-    embedding = Column(JSON, nullable=True)
+    embedding = Column(LargeBinary, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
