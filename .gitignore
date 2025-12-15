@@ -1,0 +1,19 @@
+# Byte-code files
+__pycache__/
+*.pyc
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+*.swp   # For Vim
+
+# Dependency manager files
+# Pipenv
+.pipenv/
+
+# Data and logs
+*.log
+*.data
+*.sqlite
