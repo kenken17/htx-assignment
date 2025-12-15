@@ -4,6 +4,7 @@ numpy
 openai-whisper
 pydub
 python-multipart
+scikit-learn
 sentence_transformers
 sqlalchemy
 torch
