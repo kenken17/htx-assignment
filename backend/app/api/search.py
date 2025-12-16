@@ -1,5 +1,5 @@
+from app.search.unified_search import search_media
 from fastapi import APIRouter, Query
-from search.unified_search import search_media
 
 router = APIRouter()
 

@@ -1,23 +1,23 @@
 import os
 import shutil
 
-from db import repository
-from db.deps import get_db
+from app.db import repository
+from app.db.deps import get_db
+from app.video.detection import ObjectDetector
+from app.video.pipeline import process_video_frames
+from app.video.summary import generate_video_embedding, generate_video_summary
 from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.orm import Session
-from video.detection import ObjectDetector
-from video.pipeline import process_video_frames
-from video.summary import generate_video_embedding, generate_video_summary
 
 router = APIRouter()
 
 # Paths for MobileNet SSD
-PROTOTXT = "video/models/MobileNetSSD_deploy.prototxt"
-MODEL = "video/models/MobileNetSSD_deploy.caffemodel"
+PROTOTXT = "app/video/models/MobileNetSSD_deploy.prototxt"
+MODEL = "app/video/models/MobileNetSSD_deploy.caffemodel"
 
 detector = ObjectDetector(PROTOTXT, MODEL)
 
-UPLOAD_DIR = "backend/uploads"
+UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 

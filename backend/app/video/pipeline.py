@@ -1,8 +1,8 @@
 from typing import Dict, List
 
 import cv2
-from video.detection import ObjectDetector
-from video.keyframes import extract_keyframes
+from app.video.detection import ObjectDetector
+from app.video.keyframes import extract_keyframes
 
 
 def process_video_frames(video_path: str, detector: ObjectDetector) -> Dict:

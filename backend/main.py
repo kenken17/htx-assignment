@@ -1,5 +1,5 @@
-from api import audio, health, search, video
-from db.database import Base, engine
+from app.api import audio, health, search, video
+from app.db.database import Base, engine
 from fastapi import FastAPI
 
 Base.metadata.create_all(bind=engine)

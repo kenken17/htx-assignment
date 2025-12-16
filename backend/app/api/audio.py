@@ -2,8 +2,8 @@ import io
 
 import numpy as np
 import whisper
-from db import repository
-from db.deps import get_db
+from app.db import repository
+from app.db.deps import get_db
 from fastapi import APIRouter, Depends, File, UploadFile
 from pydub import AudioSegment
 from sentence_transformers import SentenceTransformer

@@ -1,6 +1,6 @@
 import numpy as np
-from db.database import get_session
-from db.models import Transcription, Video
+from app.db.database import get_session
+from app.db.models import Transcription, Video
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 

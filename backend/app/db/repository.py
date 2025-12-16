@@ -1,5 +1,5 @@
 import numpy as np
-from db import models
+from app.db import models
 from sqlalchemy.orm import Session
 
 
