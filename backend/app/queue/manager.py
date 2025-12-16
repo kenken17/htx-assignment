@@ -1,10 +1,13 @@
 import asyncio
+import logging
 import random
 import traceback
 from typing import Awaitable, Callable
 
 from app.queue.errors import NonRetryableJobError
 from app.queue.models import Job
+
+log = logging.getLogger("queue")
 
 Processor = Callable[[Job], Awaitable[None]]
 
@@ -21,11 +24,20 @@ class QueueManager:
         self._workers: list[asyncio.Task] = []
 
     def create_job(self, job: Job) -> Job:
+        log.info(
+            "job_created job_id=%s type=%s payload_keys=%s",
+            job.id,
+            job.type,
+            list(job.payload.keys()),
+        )
+
         self.jobs[job.id] = job
         self._done[job.id] = asyncio.Event()
         return job
 
     async def enqueue(self, job_id: str) -> None:
+        log.info("job_enqueued job_id=%s type=%s", job_id, self.jobs[job_id].type)
+
         await self._q.put(job_id)
 
     async def wait(self, job_id: str) -> Job:
@@ -33,7 +45,9 @@ class QueueManager:
         return self.jobs[job_id]
 
     async def start(self, worker_count: int, processor: Processor) -> None:
-        for _ in range(worker_count):
+        for idx in range(worker_count):
+            log.info("worker_started idx=%s", idx)
+
             self._workers.append(asyncio.create_task(self._worker_loop(processor)))
 
     async def shutdown(self) -> None:
@@ -46,6 +60,8 @@ class QueueManager:
             job_id = await self._q.get()
             job = self.jobs[job_id]
 
+            log.info("job_pulled job_id=%s type=%s", job.id, job.type)
+
             job.attempt += 1
             job.status = "running"
             job.progress = max(job.progress, 1)
@@ -53,8 +69,17 @@ class QueueManager:
             job.last_error = None
             job.touch()
 
+            log.info("job_started job_id=%s attempt=%s", job.id, job.attempt)
+
             try:
                 await processor(job)
+
+                log.info(
+                    "job_succeeded job_id=%s type=%s attempt=%s",
+                    job.id,
+                    job.type,
+                    job.attempt,
+                )
 
                 job.status = "succeeded"
                 job.progress = 100
@@ -62,6 +87,13 @@ class QueueManager:
                 job.touch()
 
             except NonRetryableJobError as e:
+                log.error(
+                    "job_failed_nonretryable job_id=%s type=%s error=%s",
+                    job.id,
+                    job.type,
+                    str(e),
+                )
+
                 # Fail immediately for non-retryable cases
                 job.status = "failed"
                 job.message = "Failed (non-retryable)"
@@ -74,6 +106,16 @@ class QueueManager:
                 job.touch()
 
                 if job.attempt < job.max_attempts:
+                    log.warning(
+                        "job_retrying job_id=%s type=%s attempt=%s/%s delay_s=%.2f error=%s",
+                        job.id,
+                        job.type,
+                        job.attempt,
+                        job.max_attempts,
+                        delay,
+                        str(e),
+                    )
+
                     # exponential backoff + small jitter
                     base_delay = min(2 ** (job.attempt - 1), 30)
                     jitter = random.uniform(0, 0.5)
@@ -86,6 +128,14 @@ class QueueManager:
                     await asyncio.sleep(delay)
                     await self._q.put(job.id)
                 else:
+                    log.error(
+                        "job_failed job_id=%s type=%s attempts=%s error=%s",
+                        job.id,
+                        job.type,
+                        job.attempt,
+                        str(e),
+                    )
+
                     job.status = "failed"
                     job.message = "Failed"
                     job.touch()
@@ -93,3 +143,5 @@ class QueueManager:
             finally:
                 self._done[job_id].set()
                 self._q.task_done()
+
+                log.info("job_done job_id=%s status=%s", job.id, job.status)

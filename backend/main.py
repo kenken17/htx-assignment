@@ -1,3 +1,5 @@
+import logging
+
 from app.api import audio, health, jobs, search, video
 from app.db.database import Base, engine
 from app.processing.processor import process_job
@@ -13,6 +15,11 @@ app.include_router(video.router)
 app.include_router(audio.router)
 app.include_router(search.router)
 app.include_router(jobs.router)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 
 
 @app.on_event("startup")
