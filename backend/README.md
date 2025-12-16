@@ -1,15 +1,10 @@
-# Backend Setup
+# Backend Service – Multimedia Processing API
 
-Create a virtual environment and install dependencies:
+This backend service provides RESTful APIs for processing **video** and **audio** files. It supports key frame extraction, object detection, speech transcription, text embeddings, and unified search over processed media.
 
-```sh
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
+The implementation is intentionally **CPU-only and lightweight**, suitable for local execution or containerized environments.
 
-## Running the Service
-
-...
+---
 
 ## API Documentation
 
@@ -23,6 +18,88 @@ After starting the server, access:
 
 The Swagger UI can be used to explore and test all available
 endpoints, including file upload endpoints.
+
+## Tech Stack
+
+- **Python 3.12.7**
+- **FastAPI** – REST API framework
+- **OpenCV** – Video processing, key frame extraction, object detection (DNN)
+- **Whisper (whisper-tiny)** – Speech-to-text transcription
+- **sentence-transformers (all-MiniLM-L6-v2)** – Text embeddings
+- **SQLite** – Persistent storage
+
+---
+
+## API Endpoints
+
+### Health Check
+
+```
+GET /health
+```
+
+Returns service status.
+
+---
+
+### Video Processing
+
+```
+POST /process/video
+```
+
+Accepts a video file upload and performs:
+
+- Key frame extraction (scene-change–style frame sampling using OpenCV)
+- Object detection using a lightweight, CPU-friendly model (MobileNet-SSD–style via OpenCV DNN)
+- Text embedding generation for detected objects
+- Storage of detected objects, timestamps, and metadata in SQLite
+
+---
+
+### Audio Processing
+
+```
+POST /process/audio
+```
+
+Accepts an audio file upload and performs:
+
+- Audio preprocessing (format conversion and normalization)
+- Speech recognition using **openai/whisper-tiny**
+- Timestamped transcription with confidence scores
+- Text embedding generation using the same model as video processing
+- Storage of transcription data in SQLite
+
+---
+
+### Data Retrieval
+
+```
+GET /videos
+GET /transcriptions
+```
+
+Returns processed video metadata and audio transcriptions respectively.
+
+---
+
+### Search
+
+```
+GET /search?q=<query>
+```
+
+Performs unified full-text and vector similarity search across:
+
+- Video file names
+- Detected objects
+- Video summaries
+- Audio transcriptions
+
+Vector similarity is implemented using **cosine similarity computed in Python** over embeddings loaded from SQLite.
+
+---
 
 ## Design Notes
 
@@ -48,30 +125,109 @@ Key frame extraction and object detection are implemented as independent compone
 
 For CPU-friendly video object detection, this project uses a pretrained `MobileNet-SSD` model via OpenCV’s DNN module.
 
-**Model Files**
+---
 
-The pipeline requires two files:
+## Model Files (Required)
 
-- `MobileNetSSD_deploy.prototxt`
-  Defines the network architecture (layers, filters, strides, etc.)
+Object detection uses a lightweight **MobileNet-SSD** model via OpenCV DNN. For licensing/size reasons, the model files are **not** bundled in this repository.
 
-- `MobileNetSSD_deploy.caffemodel`
-  Contains the learned weights of the network
-  Provides knowledge for object detection (person, car, dog, etc.)
-  Both files must be present in backend/video/models/ for detection to work.
+The original MobileNet-SSD links are no longer available. Instead, this project uses the following maintained archive:
 
-**Download Links**
+- Repository: PINTO0309 / MobileNet-SSD-RealSense
+- Path: `caffemodel/MobileNetSSD`
 
-A mirror with the specific files are available in the [PINTO0309/MobileNet-SSD-RealSense](https://github.com/PINTO0309/MobileNet-SSD-RealSense/tree/master/caffemodel/MobileNetSSD) archived repository
+Source:
+https://github.com/PINTO0309/MobileNet-SSD-RealSense/tree/master/caffemodel/MobileNetSSD
 
-### Vector Search Implementation
+### Download model files
 
-This project implements vector similarity search using **Option 3** from the assignment specification.
+```bash
+# From the repository root
+mkdir -p backend/models
 
-Text embeddings are generated using the `all-MiniLM-L6-v2` model and stored directly in SQLite as serialized vectors. At query time, embeddings are loaded into memory and cosine similarity is computed in Python to rank results.
+curl -L -o backend/models/MobileNetSSD_deploy.prototxt \
+  https://raw.githubusercontent.com/PINTO0309/MobileNet-SSD-RealSense/master/caffemodel/MobileNetSSD/MobileNetSSD_deploy.prototxt
 
-The `scikit-learn` library is used solely for cosine similarity computation, not as a vector indexing or nearest-neighbor engine.
+curl -L -o backend/models/MobileNetSSD_deploy.caffemodel \
+  https://raw.githubusercontent.com/PINTO0309/MobileNet-SSD-RealSense/master/caffemodel/MobileNetSSD/MobileNetSSD_deploy.caffemodel
+```
 
-## Future Improvements
+These files are referenced by the video processing pipeline for OpenCV DNN inference.
 
-...
+---
+
+## Running Locally (Without Docker)
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+Service will be available at `http://localhost:8000`.
+
+---
+
+## Running with Docker
+
+The service can be run using Docker with a CPU-only configuration.
+
+### Option A (Simple): Build image with model files included
+
+1. Download the model files (see **Model Files** section above)
+
+2. Build and run:
+
+```bash
+cd backend
+docker build -t media-backend .
+docker run -p 8000:8000 media-backend
+```
+
+### Option B (Keep model files on host): Mount as a volume
+
+1. Download the model files (see **Model Files** section above)
+
+2. Run with a bind mount:
+
+```bash
+cd backend
+docker build -t media-backend .
+docker run -p 8000:8000 -v $(pwd)/models:/app/video/models media-backend
+```
+
+---
+
+## Database
+
+- SQLite is used as the primary datastore
+- Stores:
+  - Video file names, detected objects, frame timestamps, creation timestamps
+  - Audio file names, transcribed text, timestamps, confidence scores, creation timestamps
+
+---
+
+## Upload Storage
+
+Uploaded media files are stored on the local filesystem under `uploads/`.
+
+- For simplicity (and because results are persisted to SQLite), uploads are **not** guaranteed to persist across container restarts.
+- If you want persistence when running in Docker, mount a host volume:
+
+```bash
+cd backend
+docker run -p 8000:8000 -v $(pwd)/uploads:/app/uploads media-backend
+```
+
+---
+
+## Notes
+
+This project is designed to demonstrate:
+
+- Clean API design
+- Practical ML integration
+- Thoughtful trade-offs appropriate for a take-home assignment
+
+The focus is on correctness, clarity, and maintainability rather than production-scale optimization.
