@@ -1,10 +1,12 @@
 import asyncio
 import io
+import os
 
 import numpy as np
 import whisper
 from app.db import repository
 from app.db.database import SessionLocal
+from app.queue.errors import NonRetryableJobError
 from app.queue.models import Job
 from app.video.detection import ObjectDetector
 from app.video.pipeline import process_video_frames
@@ -22,7 +24,7 @@ WHISPER_MODEL = whisper.load_model("tiny")
 PROTOTXT = "app/video/models/MobileNetSSD_deploy.prototxt"
 MODEL = "app/video/models/MobileNetSSD_deploy.caffemodel"
 
-_DETECTOR = ObjectDetector(PROTOTXT, MODEL)
+_detector = None
 
 
 def _set(job: Job, progress: int, message: str) -> None:
@@ -31,9 +33,42 @@ def _set(job: Job, progress: int, message: str) -> None:
     job.touch()
 
 
+def _ensure_file_exists(path: str) -> None:
+    if not path:
+        raise NonRetryableJobError("No input file path provided")
+
+    if not os.path.exists(path):
+        raise NonRetryableJobError(f"Input file not found: {path}")
+
+    if os.path.getsize(path) == 0:
+        raise NonRetryableJobError(f"Input file is empty: {path}")
+
+
+def _ensure_models_exist() -> None:
+    missing = [p for p in (PROTOTXT, MODEL) if not os.path.exists(p)]
+    if missing:
+        raise NonRetryableJobError(
+            "MobileNet-SSD model files are missing: "
+            + ", ".join(missing)
+            + ". Please download them as described in the README."
+        )
+
+
+def _get_detector():
+    global _detector
+
+    _ensure_models_exist()
+
+    if _detector is None:
+        _detector = ObjectDetector(PROTOTXT, MODEL)
+    return _detector
+
+
 def _process_video_sync(file_path: str, filename: str) -> dict:
+    detector = _get_detector()
+
     with SessionLocal() as db:
-        pipeline_result = process_video_frames(file_path, _DETECTOR)
+        pipeline_result = process_video_frames(file_path, detector)
         keyframes = pipeline_result["keyframes"]
         detections = pipeline_result["objects"]
 
@@ -124,6 +159,11 @@ def _process_audio_sync(audio_bytes: bytes, filename: str) -> dict:
 
 async def process_job(job: Job) -> None:
     if job.type == "video":
+        file_path = job.payload["file_path"]
+
+        _ensure_file_exists(file_path)
+        _ensure_models_exist()
+
         _set(job, 5, "Preparing video processing")
         file_path = job.payload["file_path"]
         filename = job.payload["filename"]
@@ -137,6 +177,12 @@ async def process_job(job: Job) -> None:
         return
 
     if job.type == "audio":
+        audio_bytes = job.payload.get("audio_bytes")
+        filename = job.payload.get("filename")
+
+        if not audio_bytes:
+            raise NonRetryableJobError("Audio payload is empty")
+
         _set(job, 5, "Preparing audio processing")
         audio_bytes = job.payload["audio_bytes"]
         filename = job.payload["filename"]

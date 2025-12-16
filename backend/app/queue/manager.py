@@ -1,7 +1,10 @@
 import asyncio
+import random
+import traceback
 from typing import Awaitable, Callable
 
-from .models import Job
+from app.queue.errors import NonRetryableJobError
+from app.queue.models import Job
 
 Processor = Callable[[Job], Awaitable[None]]
 
@@ -43,23 +46,50 @@ class QueueManager:
             job_id = await self._q.get()
             job = self.jobs[job_id]
 
+            job.attempt += 1
             job.status = "running"
             job.progress = max(job.progress, 1)
             job.message = "Starting"
-            job.error = None
+            job.last_error = None
             job.touch()
 
             try:
                 await processor(job)
+
                 job.status = "succeeded"
                 job.progress = 100
                 job.message = "Completed"
                 job.touch()
-            except BaseException as e:
+
+            except NonRetryableJobError as e:
+                # Fail immediately for non-retryable cases
                 job.status = "failed"
-                job.message = "Failed"
-                job.error = str(e)
+                job.message = "Failed (non-retryable)"
+                job.last_error = str(e)
                 job.touch()
+
+            except BaseException as e:
+                # Retryable failure
+                job.last_error = f"{e}\n{traceback.format_exc()}"
+                job.touch()
+
+                if job.attempt < job.max_attempts:
+                    # exponential backoff + small jitter
+                    base_delay = min(2 ** (job.attempt - 1), 30)
+                    jitter = random.uniform(0, 0.5)
+                    delay = base_delay + jitter
+
+                    job.status = "retrying"
+                    job.message = f"Retrying in {delay:.1f}s (attempt {job.attempt}/{job.max_attempts})"
+                    job.touch()
+
+                    await asyncio.sleep(delay)
+                    await self._q.put(job.id)
+                else:
+                    job.status = "failed"
+                    job.message = "Failed"
+                    job.touch()
+
             finally:
                 self._done[job_id].set()
                 self._q.task_done()

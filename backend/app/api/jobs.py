@@ -16,7 +16,9 @@ def get_job(job_id: str, request: Request):
         "status": job.status,
         "progress": job.progress,
         "message": job.message,
-        "error": job.error,
+        "attempt": job.attempt,
+        "max_attempts": job.max_attempts,
+        "last_error": job.last_error,
         "created_at": job.created_at,
         "updated_at": job.updated_at,
     }
@@ -37,7 +39,7 @@ def get_job_result(job_id: str, request: Request):
             status_code=500,
             detail={
                 "message": "job failed",
-                "error": job.error,
+                "error": job.last_error,
             },
         )
 
