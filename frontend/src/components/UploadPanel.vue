@@ -42,7 +42,7 @@ async function submit() {
 </script>
 
 <template>
-  <div>* Multiple files upload allowed</div>
+  <div>* Multiple files upload allowed (Max. 500mb)</div>
 
   <section class="card">
     <div class="row">

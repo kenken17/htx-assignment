@@ -64,6 +64,11 @@ def _get_detector():
     return _detector
 
 
+def read_file_as_bytes(file_path: str) -> bytes:
+    with open(file_path, "rb") as f:
+        return f.read()
+
+
 def _process_video_sync(file_path: str, filename: str) -> dict:
     detector = _get_detector()
 
@@ -94,7 +99,9 @@ def _process_video_sync(file_path: str, filename: str) -> dict:
         }
 
 
-def _process_audio_sync(audio_bytes: bytes, filename: str) -> dict:
+def _process_audio_sync(file_path: str, filename: str) -> dict:
+    audio_bytes = read_file_as_bytes(file_path)
+
     # Preprocess: format conversion + normalization + resample to 16k mono
     audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
     audio = audio.set_channels(1).set_frame_rate(16000)
@@ -169,26 +176,18 @@ async def process_job(job: Job) -> None:
         filename = job.payload["filename"]
 
         _set(job, 15, "Extracting keyframes")
-        # inside _process_video_sync you can keep current code,
-        # but ideally split it so you can update progress at milestones
 
         job.result = await asyncio.to_thread(_process_video_sync, file_path, filename)
         _set(job, 95, "Finalizing")
         return
 
     if job.type == "audio":
-        audio_bytes = job.payload.get("audio_bytes")
-        filename = job.payload.get("filename")
-
-        if not audio_bytes:
-            raise NonRetryableJobError("Audio payload is empty")
-
         _set(job, 5, "Preparing audio processing")
-        audio_bytes = job.payload["audio_bytes"]
+        file_path = job.payload["file_path"]
         filename = job.payload["filename"]
 
         _set(job, 20, "Preprocessing audio")
-        job.result = await asyncio.to_thread(_process_audio_sync, audio_bytes, filename)
+        job.result = await asyncio.to_thread(_process_audio_sync, file_path, filename)
         _set(job, 95, "Finalizing")
         return
 
