@@ -1,4 +1,4 @@
-# Backend Service – Multimedia Processing API
+# Backend
 
 This backend service provides RESTful APIs for processing **video** and **audio** files. It supports key frame extraction, object detection, speech transcription, text embeddings, and unified search over processed media.
 
@@ -18,6 +18,8 @@ After starting the server, access:
 
 The Swagger UI can be used to explore and test all available
 endpoints, including file upload endpoints.
+
+---
 
 ## Tech Stack
 
@@ -86,16 +88,37 @@ Returns processed video metadata and audio transcriptions respectively.
 
 ### Search
 
-```
-GET /search?q=<query>
+This service supports **two search modes** via the same endpoint:
+
+#### 1) Text query search
+
+```http
+GET /search?q=<query>&top_k=<k>
 ```
 
-Performs unified full-text and vector similarity search across:
+Encodes the query text into an embedding and performs unified full-text + vector similarity search across:
 
 - Video file names
 - Detected objects
 - Video summaries
 - Audio transcriptions
+
+#### 2) Reference (query-by-example) search
+
+```http
+GET /search?ref_type=<video|transcription>&ref_id=<id>&top_k=<k>
+```
+
+Uses an **existing** processed record as the query vector by loading its stored embedding from SQLite.
+This powers the frontend **“Use as reference”** feature for:
+
+- Visual similarity (video-to-video / video-to-audio via detected objects + summary embeddings)
+- Audio similarity (transcription-to-transcription / transcription-to-video via transcription embeddings)
+
+Notes:
+
+- `ref_id` is the primary key of the selected table (`videos` or `transcriptions`). IDs may overlap across tables, so the pair `(ref_type, ref_id)` uniquely identifies the reference.
+- If neither `q` nor `ref_type/ref_id` are provided (or `q` is empty), the endpoint returns an empty result set.
 
 Vector similarity is implemented using **cosine similarity computed in Python** over embeddings loaded from SQLite.
 

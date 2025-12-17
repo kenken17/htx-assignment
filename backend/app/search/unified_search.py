@@ -4,11 +4,16 @@ import numpy as np
 from app.db.database import get_session
 from app.db.models import Transcription, Video
 from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
 
 RefType = Literal["video", "transcription"]
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
+
+
+def cosine_sim_matrix(query_vec: np.ndarray, matrix: np.ndarray) -> np.ndarray:
+    query_norm = np.linalg.norm(query_vec)
+    matrix_norms = np.linalg.norm(matrix, axis=1)
+    return (matrix @ query_vec) / ((query_norm * matrix_norms) + 1e-12)
 
 
 def search_media(
@@ -54,27 +59,25 @@ def search_media(
     reference_key = None  # used to filter out self result if requested
 
     if q:
-        query_emb = model.encode([q])[0].reshape(1, -1)
+        query_emb = model.encode(q)
     else:
         # Reference search: load the reference record embedding
         if ref_type == "transcription":
-            ref = (
-                session.query(Transcription).filter(Transcription.id == ref_id).first()
-            )
+            ref = session.query(Transcription).filter_by(id=ref_id).first()
             if not ref or not ref.embedding:
                 return []
-            query_emb = np.frombuffer(ref.embedding, dtype=np.float32).reshape(1, -1)
+            query_emb = np.frombuffer(ref.embedding, dtype=np.float32)
             reference_key = ("transcription", ref_id)
         elif ref_type == "video":
-            ref = session.query(Video).filter(Video.id == ref_id).first()
+            ref = session.query(Video).filter_by(id=ref_id).first()
             if not ref or not ref.embedding:
                 return []
-            query_emb = np.frombuffer(ref.embedding, dtype=np.float32).reshape(1, -1)
+            query_emb = np.frombuffer(ref.embedding, dtype=np.float32)
             reference_key = ("video", ref_id)
         else:
             return []
 
-    sims = cosine_similarity(query_emb, all_embeds)[0]
+    sims = cosine_sim_matrix(query_emb, all_embeds)
 
     # Sort all indices by similarity descending
     sorted_indices = sims.argsort()[::-1]

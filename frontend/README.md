@@ -1,6 +1,8 @@
-# Frontend (Vue 3 + Vite)
+# Frontend
 
-Single-page application to interact with the backend multimedia-processing APIs.
+Single-page application (Vue 3) to interact with the backend multimedia processing APIs.
+
+---
 
 ## Features
 
@@ -13,6 +15,8 @@ Single-page application to interact with the backend multimedia-processing APIs.
   - Text search via `/search?q=...`
   - “Use as reference” actions for visual/audio similarity (uses the selected item's summary/transcript text as the query)
 
+---
+
 ## Configure
 
 Set the backend URL:
@@ -20,6 +24,8 @@ Set the backend URL:
 ```
 VITE_API_BASE=http://localhost:8000
 ```
+
+---
 
 ## Run locally
 
@@ -29,6 +35,8 @@ npm run dev
 ```
 
 Open `http://localhost:5173`.
+
+---
 
 ## Containerization
 

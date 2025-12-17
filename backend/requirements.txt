@@ -5,7 +5,6 @@ openai-whisper
 opencv-python
 pydub
 python-multipart
-scikit-learn
 sentence_transformers
 sqlalchemy
 torch
