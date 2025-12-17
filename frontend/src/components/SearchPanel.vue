@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { search, getVideos, getTranscriptions } from "../api";
+import {
+  search,
+  searchByReference,
+  getVideos,
+  getTranscriptions,
+} from "../api";
 
 const q = ref("");
 const topK = ref(3);
@@ -10,12 +15,40 @@ const error = ref<string | null>(null);
 const videos = ref<any[]>([]);
 const transcriptions = ref<any[]>([]);
 
+// Reference mode (type + id)
+const activeRef = ref<null | {
+  type: "video" | "transcription";
+  id: number;
+  label: string;
+}>(null);
+
 async function runSearch() {
   error.value = null;
   results.value = null;
+
   try {
-    const resp = await search(q.value, topK.value);
-    results.value = resp.results ?? [];
+    const query = q.value.trim();
+
+    // If user typed something, always switch to text mode
+    if (query) {
+      activeRef.value = null;
+      const resp = await search(query, topK.value);
+      results.value = resp.results ?? [];
+      return;
+    }
+
+    // Otherwise, if reference mode is active, do ref search
+    if (activeRef.value) {
+      const resp = await searchByReference(
+        activeRef.value.type,
+        activeRef.value.id,
+        topK.value,
+      );
+      results.value = resp.results ?? [];
+      return;
+    }
+
+    results.value = [];
   } catch (e: any) {
     error.value = e?.message ?? String(e);
   }
@@ -31,15 +64,40 @@ async function loadRefs() {
   }
 }
 
+function onQueryInput() {
+  if (activeRef.value) activeRef.value = null; // leave reference mode
+}
+
+function clearReference() {
+  activeRef.value = null;
+}
+
 function useVideoAsReference(v: any) {
-  // Visual similarity proxy: use the video's summary (or filename) as the search query
-  q.value = v.summary ?? v.filename ?? "";
+  if (v?.id == null) {
+    error.value = "Video record is missing id (backend must return id).";
+    return;
+  }
+  q.value = "";
+  activeRef.value = {
+    type: "video",
+    id: Number(v.id),
+    label: v.filename ?? `video#${v.id}`,
+  };
   runSearch();
 }
 
 function useAudioAsReference(t: any) {
-  // Audio similarity proxy: use transcription text (or filename) as the search query
-  q.value = t.text ?? t.transcribed_text ?? t.filename ?? "";
+  if (t?.id == null) {
+    error.value =
+      "Transcription record is missing id (backend must return id).";
+    return;
+  }
+  q.value = "";
+  activeRef.value = {
+    type: "transcription",
+    id: Number(t.id),
+    label: t.filename ?? `transcription#${t.id}`,
+  };
   runSearch();
 }
 
@@ -54,9 +112,22 @@ loadRefs();
         <input
           v-model="q"
           placeholder="Search: objects, filenames, transcriptions..."
+          @input="onQueryInput"
+          @keydown.enter.prevent="runSearch"
         />
         <input v-model.number="topK" type="number" min="1" max="20" />
-        <button class="btn" @click="runSearch" :disabled="!q">Search</button>
+        <button
+          class="btn"
+          @click="runSearch"
+          :disabled="!activeRef && !q.trim()"
+        >
+          Search
+        </button>
+      </div>
+
+      <div v-if="activeRef" class="ref-banner">
+        Searching similar to: <strong>{{ activeRef.label }}</strong>
+        <button class="btn small" @click="clearReference">Clear</button>
       </div>
 
       <div v-if="error" class="error">
@@ -146,6 +217,22 @@ input[type="number"] {
   background: #fff;
   cursor: pointer;
 }
+.ref-banner {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.btn.small {
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
 .list {
   padding-left: 18px;
 }
@@ -187,6 +274,24 @@ input[type="number"] {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+  align-items: start;
+}
+.refs .list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+.refs .list li {
+  position: relative;
+  padding-left: 16px;
+  margin: 6px 0;
+}
+.refs .list li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  top: 0.15em;
+  line-height: 1;
 }
 .muted {
   color: #6b7280;

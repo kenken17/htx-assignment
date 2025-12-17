@@ -52,3 +52,17 @@ export async function search(q: string, topK = 5) {
   );
   return res.json() as Promise<any>;
 }
+
+export async function searchByReference(
+  refType: "video" | "transcription",
+  refId: number,
+  topK = 3,
+) {
+  const res = await fetch(
+    `${API_BASE}/search?ref_type=${encodeURIComponent(refType)}&ref_id=${encodeURIComponent(
+      String(refId),
+    )}&top_k=${topK}`,
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}

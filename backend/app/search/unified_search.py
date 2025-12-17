@@ -1,63 +1,120 @@
+from typing import Literal, Optional
+
 import numpy as np
 from app.db.database import get_session
 from app.db.models import Transcription, Video
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
+RefType = Literal["video", "transcription"]
+
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 
-def search_media(query: str, top_k: int = 3):
+def search_media(
+    query: Optional[str] = None,
+    top_k: int = 3,
+    ref_type: Optional[RefType] = None,
+    ref_id: Optional[int] = None,
+    exclude_self: bool = True,
+):
     session = get_session()
 
-    # Fetch audio transcription embeddings
-    audio_rows = session.query(Transcription).all()
-    audio_embeds = [np.frombuffer(a.embedding, dtype=np.float32) for a in audio_rows]
+    q = (query or "").strip()
 
-    # Fetch video embeddings
-    video_rows = session.query(Video).all()
-    video_embeds = [np.frombuffer(v.embedding, dtype=np.float32) for v in video_rows]
-
-    # Combine embeddings
-    all_embeds = (
-        np.vstack(audio_embeds + video_embeds)
-        if audio_embeds or video_embeds
-        else np.array([])
-    )
-
-    if all_embeds.size == 0:
+    # Require either a non-empty query OR a reference
+    if not q and not (ref_type and ref_id is not None):
         return []
 
-    # Encode query
-    query_emb = model.encode([query])[0].reshape(1, -1)
+    # Fetch rows
+    audio_rows = session.query(Transcription).all()
+    video_rows = session.query(Video).all()
 
-    # Compute cosine similarity
+    # Build embedding arrays and aligned metadata
+    audio_embeds = []
+    audio_meta = []
+    for a in audio_rows:
+        if a.embedding:
+            audio_embeds.append(np.frombuffer(a.embedding, dtype=np.float32))
+            audio_meta.append(a)
+
+    video_embeds = []
+    video_meta = []
+    for v in video_rows:
+        if v.embedding:
+            video_embeds.append(np.frombuffer(v.embedding, dtype=np.float32))
+            video_meta.append(v)
+
+    if not audio_embeds and not video_embeds:
+        return []
+
+    all_embeds = np.vstack(audio_embeds + video_embeds)
+
+    # Build query embedding (either text or reference embedding)
+    reference_key = None  # used to filter out self result if requested
+
+    if q:
+        query_emb = model.encode([q])[0].reshape(1, -1)
+    else:
+        # Reference search: load the reference record embedding
+        if ref_type == "transcription":
+            ref = (
+                session.query(Transcription).filter(Transcription.id == ref_id).first()
+            )
+            if not ref or not ref.embedding:
+                return []
+            query_emb = np.frombuffer(ref.embedding, dtype=np.float32).reshape(1, -1)
+            reference_key = ("transcription", ref_id)
+        elif ref_type == "video":
+            ref = session.query(Video).filter(Video.id == ref_id).first()
+            if not ref or not ref.embedding:
+                return []
+            query_emb = np.frombuffer(ref.embedding, dtype=np.float32).reshape(1, -1)
+            reference_key = ("video", ref_id)
+        else:
+            return []
+
     sims = cosine_similarity(query_emb, all_embeds)[0]
-    top_indices = sims.argsort()[::-1][:top_k]
+
+    # Sort all indices by similarity descending
+    sorted_indices = sims.argsort()[::-1]
 
     results = []
     total_audio = len(audio_embeds)
-    for idx in top_indices:
+
+    for idx in sorted_indices:
         score = float(sims[idx])
+
         if idx < total_audio:
-            a = audio_rows[idx]
+            a = audio_meta[idx]
+            item_key = ("transcription", a.id)
+            if exclude_self and reference_key and item_key == reference_key:
+                continue
             results.append(
                 {
                     "type": "transcription",
+                    "id": a.id,
                     "filename": a.filename,
                     "text": a.text,
                     "score": score,
                 }
             )
         else:
-            v = video_rows[idx - total_audio]
+            v = video_meta[idx - total_audio]
+            item_key = ("video", v.id)
+            if exclude_self and reference_key and item_key == reference_key:
+                continue
             results.append(
                 {
                     "type": "video",
+                    "id": v.id,
                     "filename": v.filename,
                     "summary": v.summary,
                     "score": score,
                 }
             )
+
+        if len(results) >= top_k:
+            break
 
     return results
