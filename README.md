@@ -5,6 +5,7 @@ This repository contains a full-stack multimedia processing application with:
 - **[Backend](backend/README.md)** : FastAPI (video & audio processing, vector search, job queue)
 - **[Frontend](frontend/README.md)** : Vue 3 single-page application
 - **Containerisation**: Docker & Docker Compose (CPU-friendly)
+- **[Architecture](architecture.pdf)** : Architecture overview diagram
 
 ---
 
