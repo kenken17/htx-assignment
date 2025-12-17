@@ -27,7 +27,7 @@ VITE_API_BASE=http://localhost:8000
 
 ---
 
-## Run locally
+## Running Locally (Without Docker)
 
 ```bash
 npm install
@@ -38,13 +38,13 @@ Open `http://localhost:5173`.
 
 ---
 
-## Containerization
+## Running with Docker
 
 Build and run the frontend:
 
 ```bash
-docker build -t media-frontend .
-docker run -p 5173:80 media-frontend
+docker build -t frontend .
+docker run -p 5173:80 frontend
 ```
 
 If your backend runs on a different host/port, set `VITE_API_BASE` at build time by editing a `.env` before building.

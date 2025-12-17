@@ -112,8 +112,8 @@ GET /search?ref_type=<video|transcription>&ref_id=<id>&top_k=<k>
 Uses an **existing** processed record as the query vector by loading its stored embedding from SQLite.
 This powers the frontend **“Use as reference”** feature for:
 
-- Visual similarity (video-to-video / video-to-audio via detected objects + summary embeddings)
-- Audio similarity (transcription-to-transcription / transcription-to-video via transcription embeddings)
+- Visual similarity
+- Audio similarity
 
 Notes:
 
@@ -127,8 +127,6 @@ Vector similarity is implemented using **cosine similarity computed in Python** 
 ## Design Notes
 
 Audio and video pipelines follow the same conceptual structure (media ingestion → content extraction → summarization → embedding → search).
-
-Due to differences in processing complexity, video logic is modularized further, while audio processing is kept within the API layer for simplicity.
 
 ### Key Frame Extraction (Video Processing)
 
@@ -204,8 +202,8 @@ The service can be run using Docker with a CPU-only configuration.
 
 ```bash
 cd backend
-docker build -t media-backend .
-docker run -p 8000:8000 media-backend
+docker build -t backend .
+docker run -p 8000:8000 backend
 ```
 
 ### Option B (Keep model files on host): Mount as a volume
@@ -216,8 +214,8 @@ docker run -p 8000:8000 media-backend
 
 ```bash
 cd backend
-docker build -t media-backend .
-docker run -p 8000:8000 -v $(pwd)/models:/app/video/models media-backend
+docker build -t backend .
+docker run -p 8000:8000 -v $(pwd)/models:/app/video/models backend
 ```
 
 ---
@@ -240,7 +238,7 @@ Uploaded media files are stored on the local filesystem under `uploads/`.
 
 ```bash
 cd backend
-docker run -p 8000:8000 -v $(pwd)/uploads:/app/uploads media-backend
+docker run -p 8000:8000 -v $(pwd)/uploads:/app/uploads backend
 ```
 
 ---
