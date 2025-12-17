@@ -1,0 +1,39 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    ports:
+      - "8000:8000"
+    environment:
+      PYTHONUNBUFFERED: "1"
+      # CPU-friendly defaults (optional)
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    volumes:
+      # Persist uploads
+      - ./backend/uploads:/app/uploads
+      # Persist SQLite (adjust the filename/path to match your project)
+      - ./backend/media.db:/app/media.db
+      # Mount MobileNet-SSD model files downloaded by the reviewer
+      - ./backend/app/video/models:/app/app/video/models
+      # Persist HuggingFace caches (whisper + sentence-transformers)
+      - hf_cache:/root/.cache/huggingface
+      - torch_cache:/root/.cache/torch
+    restart: unless-stopped
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE: "/api"
+    container_name: frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+volumes:
+  hf_cache:
+  torch_cache:
