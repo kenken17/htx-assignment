@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from app.db.database import Base
 from sqlalchemy import JSON, Column, DateTime, Integer, LargeBinary, String, Text
@@ -13,7 +13,7 @@ class Video(Base):
     detected_objects = Column(JSON)
     summary = Column(String)
     embedding = Column(LargeBinary, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(UTC))
 
 
 class Transcription(Base):
@@ -24,4 +24,4 @@ class Transcription(Base):
     text = Column(Text)
     timestamps = Column(JSON)
     embedding = Column(LargeBinary, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(UTC))

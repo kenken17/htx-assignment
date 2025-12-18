@@ -243,6 +243,19 @@ docker run -p 8000:8000 -v $(pwd)/uploads:/app/uploads backend
 
 ---
 
+## Running Backend Tests
+
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+pytest -q
+```
+
+---
+
 ## Notes
 
 This project is designed to demonstrate:

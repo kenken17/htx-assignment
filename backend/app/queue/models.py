@@ -1,6 +1,6 @@
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal, Optional
 
 JobType = Literal["video", "audio"]
@@ -21,10 +21,10 @@ class Job:
     max_attempts: int = 3
     last_error: Optional[str] = None
 
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     result: Optional[Any] = None
 
     def touch(self) -> None:
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(UTC)
