@@ -5,7 +5,7 @@ const r = computed(() => props.result ?? {});
 </script>
 
 <template>
-  <div class="viewer">
+  <div class="viewer" data-testid="video-detections">
     <!-- Video-like result -->
     <div v-if="r.summary || r.keyframes || r.objects" class="block">
       <h4>Summary</h4>

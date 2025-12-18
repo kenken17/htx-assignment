@@ -27,9 +27,20 @@ VITE_API_BASE=http://localhost:8000
 
 ---
 
+## Running Tests
+
+```bash
+cd frontend
+npm install
+npm run test:run
+```
+
+---
+
 ## Running Locally (Without Docker)
 
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
@@ -43,6 +54,7 @@ Open `http://localhost:5173`.
 Build and run the frontend:
 
 ```bash
+cd frontend
 docker build -t frontend .
 docker run -p 5173:80 frontend
 ```
